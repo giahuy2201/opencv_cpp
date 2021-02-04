@@ -56,6 +56,11 @@ int main()
     filter2D(img, out, -1, kernel);
     imshow("blurred", out);
 
+    // Gaussian Difference
+    Mat diff;
+    subtract(img, out, diff);
+    imshow("diff", diff);
+
     waitKey(0);
 
     return 0;
