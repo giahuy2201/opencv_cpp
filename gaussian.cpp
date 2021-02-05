@@ -44,12 +44,13 @@ int main()
 
     Mat kernel = calcKernel(5, 3);
     // the values calculated is between 0 and 1 (float), imshow will automatically map them into [0:255]. Since the values are typically small, it'll be shown as almost black
-    imshow("kernel", kernel);
     cout << kernel << endl;
     Mat nkernel;
     normalize(kernel, nkernel, 0, 1, NORM_MINMAX);
     // to show the kernel better, we normalize those value [0,1] into [min,max]
-    imshow("minmax_kernel", nkernel);
+    Mat bigkernel;
+    resize(nkernel, bigkernel, Size(500, 500), 0, 0, INTER_NEAREST);
+    imshow("minmax_kernel", bigkernel);
 
     // apply the calculated filter
     Mat out;
