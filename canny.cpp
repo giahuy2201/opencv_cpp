@@ -112,49 +112,151 @@ Mat binary(Mat src)
     return mat;
 }
 
+MatIterator_<float> nearest(MatIterator_<float> p1, MatIterator_<float> p2, MatIterator_<float> p3, float angle)
+{
+    float x = cos(angle);
+    float y = sin(angle);
+    float x1, y1, x2, y2, x3, y3;
+    if (angle >= 0 && angle < M_PI / 2)
+    {
+        x1 = 1;
+        y1 = 0;
+        x2 = 0;
+        y2 = 1;
+        x3 = 1;
+        y3 = 1;
+    }
+    else if (angle >= M_PI / 2 && angle < M_PI)
+    {
+        x1 = -1;
+        y1 = 0;
+        x2 = 0;
+        y2 = 1;
+        x3 = -1;
+        y3 = 1;
+    }
+    else if (angle >= M_PI && angle < 3 * M_PI / 2)
+    {
+        x1 = -1;
+        y1 = 0;
+        x2 = 0;
+        y2 = -1;
+        x3 = -1;
+        y3 = -1;
+    }
+    else
+    {
+        x1 = 1;
+        y1 = 0;
+        x2 = 0;
+        y2 = -1;
+        x3 = 1;
+        y3 = -1;
+    }
+    float d1 = sqrt(pow(x - x1, 2) + pow(y - y1, 2));
+    float d2 = sqrt(pow(x - x2, 2) + pow(y - y2, 2));
+    float d3 = sqrt(pow(x - x3, 2) + pow(y - y3, 2));
+    float min = std::min(std::min(d1, d2), d3);
+    if (min == d1)
+    {
+        return p1;
+    }
+    else if (min == d2)
+    {
+        return p2;
+    }
+    else
+    {
+        return p3;
+    }
+}
+
 Mat thinning(Mat orient, Mat magnit)
 {
     const int nRows = orient.rows;
     const int nCols = orient.cols;
     Mat mat = Mat::zeros(nRows, nCols, CV_32F);
+    // Mat mat = magnit.clone();
+    // orient += M_PI;
+    // orient /= 2 * M_PI;
 
-    normalize(orient, orient, 0, 1, NORM_MINMAX);
-    orient *= 360;
-    float sl = 360 / 16.;
-
-    MatIterator_<float> itr = mat.begin<float>() + 1;
-    MatIterator_<float> end = mat.end<float>() - 1;
-    MatIterator_<float> itrO = orient.begin<float>() + 1;
-    MatIterator_<float> endO = orient.end<float>() - 1;
-    MatIterator_<float> itrM = magnit.begin<float>() + 1;
-    MatIterator_<float> endM = magnit.end<float>() - 1;
+    MatIterator_<float> itr = mat.begin<float>() + nCols + 1;
+    MatIterator_<float> end = mat.end<float>() - nCols - 1;
+    MatIterator_<float> itrO = orient.begin<float>() + nCols + 1;
+    MatIterator_<float> endO = orient.end<float>() - nCols - 1;
+    MatIterator_<float> itrM = magnit.begin<float>() + nCols + 1;
+    MatIterator_<float> endM = magnit.end<float>() - nCols - 1;
     for (; itr != end; itr++)
     {
-        float ngbr1, ngbr2;
-        if (*itrO >= 3 * sl && *itrO < 5 * sl)
+        MatIterator_<float> topleft = itrM - nCols - 1;
+        MatIterator_<float> top = itrM - nCols;
+        MatIterator_<float> topright = itrM - nCols + 1;
+        MatIterator_<float> midleft = itrM - 1;
+        MatIterator_<float> mid = itrM;
+        MatIterator_<float> midright = itrM + 1;
+        MatIterator_<float> botleft = itrM + nCols - 1;
+        MatIterator_<float> bot = itrM + nCols;
+        MatIterator_<float> botright = itrM + nCols + 1;
+        float x = cos(*itrO);
+        float y = sin(*itrO);
+
+        if (*itrO >= 0 && *itrO < M_PI / 2)
         {
-            ngbr1 = *(itrM - nCols + 1);
-            ngbr2 = *(itrM + nCols - 1);
-        }
-        else if (*itrO >= 5 * sl && *itrO < 7 * sl)
-        {
-            ngbr1 = *(itrM - nCols);
-            ngbr2 = *(itrM + nCols);
-        }
-        else if (*itrO >= 7 * sl && *itrO < 9 * sl)
-        {
-            ngbr1 = *(itrM - nCols - 1);
-            ngbr2 = *(itrM + nCols + 1);
+            float x1 = 0, x2 = 1, y1 = 0, y2 = 1;
+            float interpol1 = (*mid * (x2 - x) * (y2 - y) + *midright * (x - x1) * (y2 - y) + *top * (x2 - x) * (y - y1) + *topright * (x - x1) * (y - y1)) / (x2 - x1) / (y2 - y1);
+            x1 = -1;
+            x2 = 0;
+            y1 = -1;
+            y2 = 0;
+            float interpol2 = (*botleft * (x2 - x) * (y2 - y) + *bot * (x - x1) * (y2 - y) + *midleft * (x2 - x) * (y - y1) + *mid * (x - x1) * (y - y1)) / (x2 - x1) / (y2 - y1);
+            if (*mid > interpol1 && *mid > interpol2)
+            {
+                *itr = *mid;
+            }
+            // if (*mid > interpol1 && *mid > interpol2)
+            // {
+            //     *itr = 0;
+            // }
+            // else
+            // {
+            //     if (*mid > interpol1)
+            //     {
+            //         *nearest(midright, top, topright, *itrO) = 0;
+            //     }
+            //     if (*mid > interpol2)
+            //     {
+            //         *nearest(midleft, bot, botleft, *itrO) = 0;
+            //     }
+            // }
         }
         else
         {
-            ngbr1 = *(itrM - 1);
-            ngbr2 = *(itrM + 1);
-        }
-
-        if (*itrM > ngbr1 && *itrM > ngbr2)
-        {
-            *itr = *itrM;
+            float x1 = -1, x2 = 0, y1 = 0, y2 = 1;
+            float interpol1 = (*midleft * (x2 - x) * (y2 - y) + *mid * (x - x1) * (y2 - y) + *topleft * (x2 - x) * (y - y1) + *top * (x - x1) * (y - y1)) / (x2 - x1) / (y2 - y1);
+            x1 = 0;
+            x2 = 1;
+            y1 = -1;
+            y2 = 0;
+            float interpol2 = (*bot * (x2 - x) * (y2 - y) + *botright * (x - x1) * (y2 - y) + *mid * (x2 - x) * (y - y1) + *midright * (x - x1) * (y - y1)) / (x2 - x1) / (y2 - y1);
+            if (*mid > interpol1 && *mid > interpol2)
+            {
+                *itr = *mid;
+            }
+            // if (*mid > interpol1 && *mid > interpol2)
+            // {
+            //     *itr = 0;
+            // }
+            // else
+            // {
+            //     if (*mid > interpol1)
+            //     {
+            //         *nearest(midleft, top, topleft, *itrO) = 0;
+            //     }
+            //     if (*mid > interpol2)
+            //     {
+            //         *nearest(midright, bot, botright, *itrO) = 0;
+            //     }
+            // }
         }
         itrO++;
         itrM++;
@@ -170,17 +272,17 @@ Mat hysteresis(Mat src, int low, int high)
     const int nCols = src.cols;
     Mat mat = Mat::zeros(nRows, nCols, CV_32F);
 
-    MatIterator_<float> itr = mat.begin<float>() + 1;
-    MatIterator_<float> end = mat.end<float>() - 1;
-    MatIterator_<float> itr2 = src.begin<float>() + 1;
-    MatIterator_<float> end2 = src.end<float>() - 1;
-    for (; itr != end && itr2 != end2; itr++)
+    MatIterator_<float> itr = mat.begin<float>() + nCols + 1;
+    MatIterator_<float> end = mat.end<float>() - nCols - 1;
+    MatIterator_<float> itr2 = src.begin<float>() + nCols + 1;
+    MatIterator_<float> end2 = src.end<float>() - nCols - 1;
+    for (; itr != end; itr++)
     {
         if (*itr2 >= h)
         {
-            *itr = *itr2;
+            *itr = 1;
         }
-        else
+        else if (*itr2 >= l)
         {
             float ngbr1 = *(itr2 - nCols - 1);
             float ngbr2 = *(itr2 - nCols);
@@ -192,12 +294,21 @@ Mat hysteresis(Mat src, int low, int high)
             float ngbr9 = *(itr2 + nCols + 1);
             if (ngbr1 >= h || ngbr2 >= h || ngbr3 >= h || ngbr4 >= h || ngbr6 >= h || ngbr7 >= h || ngbr8 >= h || ngbr9 >= h)
             {
-                *itr = *itr2;
+                *itr = 1;
             }
         }
         itr2++;
     }
     return mat;
+}
+
+int low = 20, high = 30;
+Mat mat;
+
+static void onTrackbar(int, void *)
+{
+    Mat mat2 = hysteresis(mat, low, high);
+    imshow("hysteresis", mat2);
 }
 
 int main()
@@ -210,7 +321,7 @@ int main()
     imshow("original", img);
     cout << "depth: " << img.depth() << ", channels: " << img.channels() << endl;
 
-    GaussianBlur(img, img, Size(5, 5), 3);
+    GaussianBlur(img, img, Size(5, 5), 2);
 
     Mat sbx = sobelXk();
     Mat sobelx, nsobelx;
@@ -236,15 +347,17 @@ int main()
     Mat thinn = thinning(orient, magnit);
     imshow("thin", thinn);
 
-    Mat hyst = hysteresis(thinn, 10, 50);
-    imshow("hysteresis", hyst);
+    string wdn = "hysteresis";
+    namedWindow(wdn);
+    createTrackbar("low", wdn, &low, 255, onTrackbar);
+    createTrackbar("high", wdn, &high, 255, onTrackbar);
+    mat = thinn;
 
-    Mat bin = binary(hyst);
-    imshow("binary", bin);
+    // Mat out;
+    // Canny(img0, out, 50, 150);
+    // imshow("canny", out);
 
-    Mat out;
-    Canny(img0, out, 50, 150);
-    imshow("canny", out);
+    onTrackbar(0, 0);
 
     waitKey(0);
 
